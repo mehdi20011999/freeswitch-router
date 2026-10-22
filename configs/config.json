@@ -1,0 +1,8 @@
+{
+    "server": {
+        "listen_address": "127.0.0.1",
+        "port": 8083
+    },
+    "log_file": "logs/router.log",
+    "log_level": "INFO"
+}

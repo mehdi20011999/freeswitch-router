@@ -1,0 +1,13 @@
+flowchart LR
+    OP(["operator"]) -->|"router provider add / route add"| CLI["router CLI"]
+    CLI -->|"validated, bound parameters"| DB[("PostgreSQL")]
+    CLI --> GEN["fs_xml_generator"]
+    GEN -->|"read active providers and routes"| DB
+    GEN --> F1["sip_profiles/router.xml"]
+    GEN --> F2["sip_profiles/router/&lt;uuid&gt;.xml<br/>one gateway per provider"]
+    GEN --> F3["dialplan/router.xml + router/route_N.xml"]
+    GEN --> F4["scripts/route_handler.lua"]
+    GEN --> F5["router_vars.xml (router_db_dsn, 0640)"]
+    GEN -->|"stale files pruned"| F2
+    F1 & F2 & F3 & F4 & F5 --> RL["fs_cli -x reloadxml<br/>sofia profile router rescan"]
+    RL --> FS["FreeSWITCH"]

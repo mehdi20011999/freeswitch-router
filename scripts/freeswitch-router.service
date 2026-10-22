@@ -1,0 +1,37 @@
+# systemd unit for the router daemon. Install with:
+#   sudo make install
+#   sudo install -m644 scripts/freeswitch-router.service /etc/systemd/system/
+#   sudo install -m600 -o freeswitch /dev/null /etc/freeswitch-router.env   # then fill it
+#   sudo systemctl enable --now freeswitch-router
+[Unit]
+Description=FreeSWITCH call router (S1 -> S2 -> S3 -> S2 -> S4)
+After=network-online.target postgresql.service freeswitch.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Same user as FreeSWITCH: the generated files must be readable by it.
+User=freeswitch
+Group=freeswitch
+WorkingDirectory=/var/lib/freeswitch-router
+StateDirectory=freeswitch-router
+# ROUTER_DB_CONNECTION, ROUTER_FS_DB_DSN, ROUTER_SIP_PORT, ... (docs/OPERATIONS.md)
+EnvironmentFile=/etc/freeswitch-router.env
+Environment=ROUTER_LOG_FILE=-
+ExecStart=/usr/local/bin/freeswitch-router --daemon
+Restart=on-failure
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/freeswitch /usr/share/freeswitch/scripts /var/lib/freeswitch-router
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

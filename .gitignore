@@ -1,0 +1,23 @@
+# Build output
+/build/
+/router
+/router-asan
+*.o
+*.d
+
+# Runtime
+/logs/
+*.log
+
+# Editors and backups (never commit these again)
+*.bak
+*.backup*
+*.orig
+*.rej
+*.swp
+.vscode/
+.idea/
+
+# Local secrets
+.env
+*.env

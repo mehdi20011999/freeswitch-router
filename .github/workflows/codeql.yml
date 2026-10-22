@@ -1,0 +1,29 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          build-mode: manual
+          queries: security-extended
+      - name: Build
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libpq-dev libjson-c-dev libmicrohttpd-dev uuid-dev libreadline-dev pkg-config
+          make -j"$(nproc)"
+      - uses: github/codeql-action/analyze@v3

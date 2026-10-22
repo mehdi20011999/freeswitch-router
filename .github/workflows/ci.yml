@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_DEPS: libpq-dev libjson-c-dev libmicrohttpd-dev uuid-dev libreadline-dev pkg-config
+
+jobs:
+  build:
+    name: Build (${{ matrix.cc }}) + unit tests
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq $BUILD_DEPS clang
+      - name: Build with warnings as errors
+        run: make -j"$(nproc)" CC=${{ matrix.cc }} WERROR=1
+      - name: Unit tests under AddressSanitizer + UBSan
+        run: make test CC=${{ matrix.cc }}
+      - name: Binary is hardened (PIE, full RELRO, stack protector)
+        # grep without -q reads all input: no SIGPIPE under pipefail
+        run: |
+          readelf -h router | grep 'DYN' > /dev/null
+          readelf -d router | grep 'BIND_NOW' > /dev/null
+          nm -D router | grep '__stack_chk_fail' > /dev/null
+
+  lint:
+    name: Static analysis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq cppcheck shellcheck lua5.4
+      - name: cppcheck, shellcheck, luac
+        run: make lint
+
+  integration:
+    name: PostgreSQL, Lua and SIP end-to-end
+    runs-on: ubuntu-24.04
+    needs: build
+    env:
+      PGHOST: localhost
+      PGUSER: router
+      PGPASSWORD: ci-only-password
+      PGDATABASE: router_test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq $BUILD_DEPS postgresql lua5.4 libxml2-utils
+      - name: Start PostgreSQL (preinstalled on the runner)
+        run: |
+          sudo systemctl start postgresql.service
+          sudo -u postgres psql -q -c "CREATE ROLE router LOGIN PASSWORD 'ci-only-password'"
+          sudo -u postgres psql -q -c "CREATE DATABASE router_test OWNER router"
+          sudo -u postgres psql -q -c "CREATE DATABASE router_bench OWNER router"
+      - name: CLI, SQL concurrency and Lua handler tests
+        run: make test-db
+      - name: SIP over UDP against the daemon (ASan/UBSan build)
+        run: make test-e2e
+      - name: Benchmark DID allocation (original vs new)
+        env:
+          PGDATABASE: router_bench
+        run: |
+          psql -X -q -v ON_ERROR_STOP=1 -f sql/001_schema.sql -f sql/002_functions.sql -f sql/seed_demo.sql
+          tests/bench/did_alloc_bench.sh 50000 8 10 | tee bench.txt
+          { echo '### DID allocation benchmark'; echo '```'; cat bench.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          # The new allocator must never hand one DID to two calls.
+          grep -E '^  new +0 of' bench.txt

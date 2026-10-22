@@ -1,0 +1,20 @@
+flowchart LR
+    SIPIN(["SIP from S1 and S3"]) --> PROF
+    subgraph FS["FreeSWITCH: B2BUA and media"]
+        PROF["sofia profile router<br/>one gateway per provider"] --> DP["dialplan context router<br/>source IP AND number pattern"]
+        DP --> LUA["route_handler.lua<br/>input checks, one SQL call per leg"]
+    end
+    LUA -->|"router_allocate_did<br/>router_complete_return"| DB[("PostgreSQL<br/>tables and call-path functions")]
+    LUA --> SIPOUT(["SIP to S3 and S4"])
+
+    subgraph RT["router daemon, C"]
+        CLI["CLI<br/>provider, route, did, module2"]
+        GEN["config generator<br/>atomic writes, XML escaping"]
+        SIP["SIP redirect server<br/>UDP 5060, optional mode"]
+        API["HTTP API<br/>127.0.0.1:8083"]
+    end
+    CLI --> GEN
+    GEN -.->|"XML files + fs_cli reload"| PROF
+    CLI --> DB
+    SIP --> DB
+    API --> DB

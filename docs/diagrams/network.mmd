@@ -1,0 +1,9 @@
+flowchart LR
+    S1["S1<br/>origin carrier<br/>10.0.0.1"]
+    S2["S2 router<br/>FreeSWITCH + router + PostgreSQL<br/>10.0.0.2"]
+    S3["S3<br/>intermediate<br/>10.0.0.3"]
+    S4["S4<br/>final carrier<br/>10.0.0.4"]
+    S1 -->|"1. ANI-1 / DNIS-1"| S2
+    S2 -->|"2. ANI-2 = DNIS-1 / DID"| S3
+    S3 -->|"3. ANI-2 / DID"| S2
+    S2 -->|"4. ANI-1 / DNIS-1 restored"| S4

@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    participant S1 as S1 origin
+    participant FS as S2 FreeSWITCH (Lua)
+    participant DB as PostgreSQL
+    participant S3 as S3 intermediate
+    participant S4 as S4 final
+
+    S1->>FS: INVITE From ANI-1, To DNIS-1
+    Note over S1,FS: dialplan: source IP is S1<br/>AND DNIS-1 matches the route
+    FS->>FS: ANI/DNIS must be digits (else INVITE rejected, no SQL sent)
+    FS->>DB: SELECT router_allocate_did(route, uuid, ANI-1, DNIS-1, ip)
+    Note over FS,DB: FOR UPDATE SKIP LOCKED on the free-DID index<br/>the DID row keeps ANI-1 and DNIS-1, call_records = routing
+    alt pool empty
+        DB-->>FS: NULL (security_event DID_EXHAUSTED)
+        FS-->>S1: NORMAL_CIRCUIT_CONGESTION
+    else DID available
+        DB-->>FS: DID
+        FS->>S3: INVITE From ANI-2 = DNIS-1, To DID
+        alt bridge to S3 fails
+            FS->>DB: router_cancel_did(DID, uuid, cause)
+            Note over FS,DB: DID free again at once, call_records = failed
+        end
+    end
+
+    S3->>FS: INVITE From ANI-2, To DID
+    Note over FS,S3: dialplan: source IP is S3 AND To is a number
+    FS->>DB: SELECT * FROM router_complete_return(DID, ip)
+    alt DID not allocated (replay, fraud, late call)
+        DB-->>FS: no row (security_event UNKNOWN_RETURN)
+        FS-->>S3: CALL_REJECTED
+    else DID allocated
+        DB-->>FS: ANI-1, DNIS-1, S4 gateway of this call
+        Note over FS,DB: DID freed (LRU), call_records = forwarding, stage 2
+        FS->>S4: INVITE From ANI-1, To DNIS-1
+    end
+
+    Note over FS,S4: every 30 s router_release_stale_dids frees DIDs<br/>whose call never came back within 5 minutes (call_records = timeout)

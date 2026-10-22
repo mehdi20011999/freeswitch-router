@@ -1,0 +1,12 @@
+flowchart LR
+    PUSH(["push / pull request"]) --> B["build: gcc and clang<br/>-Werror, hardening check"]
+    B --> U["unit tests<br/>ASan + UBSan, 20k fuzz rounds"]
+    PUSH --> L["lint<br/>cppcheck, shellcheck, luac"]
+    B --> I["integration (PostgreSQL 16)"]
+    I --> I1["CLI + FreeSWITCH XML (xmllint)"]
+    I --> I2["SQL concurrency: 40 callers, 10 DIDs"]
+    I --> I3["Lua handler on real SQL"]
+    I --> I4["SIP over UDP end-to-end<br/>daemon under ASan"]
+    I --> I5["benchmark old vs new<br/>job summary"]
+    PUSH --> C["CodeQL security-extended<br/>+ weekly"]
+    TAG(["tag v*"]) --> R["release: build, test,<br/>tarball + sha256"]

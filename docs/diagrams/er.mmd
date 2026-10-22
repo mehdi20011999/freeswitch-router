@@ -1,0 +1,62 @@
+erDiagram
+    providers ||--o{ routes : "origin / intermediate / final"
+    providers ||--o{ dids : "owns (NULL = shared pool)"
+    routes ||--o{ call_records : "routed by"
+    providers ||--o{ call_records : "S1 / S3 / S4 of the call"
+    dids ||--o| call_records : "carries (by call_id)"
+
+    providers {
+        serial id PK
+        varchar uuid UK "FreeSWITCH gateway name"
+        varchar name UK
+        varchar host "matched against network_addr"
+        int port
+        varchar role "origin | intermediate | final | general"
+        varchar auth_type "ip | userpass"
+        text auth_data
+        int capacity
+        bool active
+    }
+    routes {
+        serial id PK
+        varchar uuid UK
+        varchar name
+        varchar pattern "regex on DNIS, validated"
+        int origin_provider_id FK
+        int intermediate_provider_id FK
+        int final_provider_id FK
+        int priority "highest wins"
+        bool active
+    }
+    dids {
+        serial id PK
+        varchar did UK
+        int provider_id FK
+        bool in_use
+        varchar original_ani "ANI-1 while in use"
+        varchar destination "DNIS-1 while in use"
+        varchar call_id
+        timestamp allocated_at
+        timestamp released_at "LRU order"
+        bool active
+    }
+    call_records {
+        serial id PK
+        varchar call_id
+        int route_id FK
+        varchar original_ani
+        varchar original_dnis
+        varchar assigned_did
+        varchar source_server
+        varchar status "routing | forwarding | failed | timeout"
+        int stage "1 = S3 leg, 2 = S4 leg"
+        varchar failure_reason
+    }
+    security_events {
+        serial id PK
+        varchar event_type "DID_EXHAUSTED | UNKNOWN_RETURN | ..."
+        varchar severity
+        varchar call_id
+        varchar source_ip
+        text details
+    }

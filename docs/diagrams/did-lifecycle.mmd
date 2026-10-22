@@ -1,0 +1,8 @@
+flowchart TB
+    NEW(["did add / did import"]) --> FREE
+    FREE["<b>Free</b><br/>in partial index,<br/>least recently released first"]
+    INUSE["<b>In use</b><br/>holds ANI-1, DNIS-1, call id"]
+    INACTIVE["<b>Inactive</b><br/>active = false"]
+    FREE -->|"router_allocate_did()<br/>FOR UPDATE SKIP LOCKED"| INUSE
+    INUSE -->|"router_complete_return(): S3 called back<br/>router_cancel_did(): bridge to S3 failed<br/>router_release_stale_dids(): no return in 5 min<br/>did release: operator"| FREE
+    FREE <-->|"active true / false"| INACTIVE

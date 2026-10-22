@@ -1,0 +1,5 @@
+flowchart LR
+    START(["INVITE from S1<br/>router_allocate_did()"]) --> ROUTING["<b>routing</b><br/>stage 1, DID held,<br/>call on the S3 leg"]
+    ROUTING -->|"router_complete_return()<br/>S3 called back"| FWD["<b>forwarding</b><br/>stage 2, sent to S4"]
+    ROUTING -->|"router_cancel_did()<br/>S3 busy or unreachable,<br/>or did release"| FAILED["<b>failed</b><br/>failure_reason set"]
+    ROUTING -->|"router_release_stale_dids()<br/>no return within 5 min"| TIMEOUT["<b>timeout</b>"]
